@@ -12,7 +12,7 @@ use axum::{
     AddExtensionLayer, Router, Server,
 };
 use bollard::Docker;
-use env_logger::Env;
+use sea_orm::Database;
 
 const PATH: &str = "/graphql";
 
@@ -30,10 +30,20 @@ async fn playground_handler() -> Html<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    env_logger::init_from_env(Env::default().default_filter_or("info"));
+    tracing_subscriber::fmt::init();
+
+    if dotenv::dotenv().is_ok() {
+        log::info!("Loaded environment variables from file");
+    }
 
     let docker = Docker::connect_with_socket_defaults()?;
-    let schema = graphql::build_schema().data(Arc::new(docker)).finish();
+    let database_url = std::env::var("DATABASE_URL")?;
+    let database = Database::connect(database_url).await?;
+
+    let schema = graphql::build_schema()
+        .data(Arc::new(docker))
+        .data(Arc::new(database))
+        .finish();
 
     let app = Router::new()
         .route(PATH, get(playground_handler))
