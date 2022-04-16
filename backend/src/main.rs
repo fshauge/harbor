@@ -7,10 +7,10 @@ use axum::{
     extract::Extension,
     response::Html,
     routing::{get, post},
-    AddExtensionLayer, Router, Server,
+    Router, Server,
 };
 use bollard::Docker;
-use sea_orm::Database;
+use entity::Database;
 use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
 
@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
     let app = Router::new()
         .route(PATH, get(playground_handler))
         .route(PATH, post(graphql_handler))
-        .layer(AddExtensionLayer::new(schema));
+        .layer(Extension(schema));
 
     let port = config.port.unwrap_or(4000);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
