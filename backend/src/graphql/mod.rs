@@ -1,13 +1,14 @@
 mod application;
+mod service;
 
-use self::application::*;
+use self::{application::*, service::*};
 use async_graphql::{EmptySubscription, MergedObject};
 
 #[derive(MergedObject, Default)]
-pub struct Query(ApplicationQuery);
+pub struct Query(ApplicationQuery, ServiceQuery);
 
 #[derive(MergedObject, Default)]
-pub struct Mutation(ApplicationMutation);
+pub struct Mutation(ApplicationMutation, ServiceMutation);
 
 pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
 pub type SchemaBuilder = async_graphql::SchemaBuilder<Query, Mutation, EmptySubscription>;

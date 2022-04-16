@@ -38,20 +38,4 @@ impl Application {
         .fetch_one(pool)
         .await
     }
-
-    pub async fn update(
-        id: i32,
-        application: NewApplication,
-        pool: &PgPool,
-    ) -> Result<Application, Error> {
-        sqlx::query_as!(
-            Application,
-            "UPDATE applications SET name = $2, repository = $3 WHERE id = $1 RETURNING *",
-            id,
-            application.name,
-            application.repository
-        )
-        .fetch_one(pool)
-        .await
-    }
 }

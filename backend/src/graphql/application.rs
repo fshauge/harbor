@@ -1,4 +1,4 @@
-use crate::model::{Application, NewApplication};
+use crate::model::{Application, NewApplication, Service};
 use async_graphql::{Context, Object, Result};
 use chrono::NaiveDateTime;
 use sqlx::PgPool;
@@ -9,13 +9,13 @@ pub struct ApplicationQuery;
 #[Object]
 impl ApplicationQuery {
     async fn applications(&self, ctx: &Context<'_>) -> Result<Vec<Application>> {
-        let pool: &PgPool = ctx.data()?;
+        let pool = ctx.data::<PgPool>()?;
         let applications = Application::all(pool).await?;
         Ok(applications)
     }
 
     async fn application(&self, ctx: &Context<'_>, id: i32) -> Result<Application> {
-        let pool: &PgPool = ctx.data()?;
+        let pool = ctx.data::<PgPool>()?;
         let application = Application::by_id(id, pool).await?;
         Ok(application)
     }
@@ -32,21 +32,8 @@ impl ApplicationMutation {
         name: String,
         repository: String,
     ) -> Result<Application> {
-        let pool: &PgPool = ctx.data()?;
+        let pool = ctx.data::<PgPool>()?;
         let application = Application::insert(NewApplication { name, repository }, pool).await?;
-        Ok(application)
-    }
-
-    async fn update_application(
-        &self,
-        ctx: &Context<'_>,
-        id: i32,
-        name: String,
-        repository: String,
-    ) -> Result<Application> {
-        let pool: &PgPool = ctx.data()?;
-        let application =
-            Application::update(id, NewApplication { name, repository }, pool).await?;
         Ok(application)
     }
 }
@@ -71,5 +58,11 @@ impl Application {
 
     async fn updated_at(&self) -> NaiveDateTime {
         self.updated_at
+    }
+
+    async fn services(&self, ctx: &Context<'_>) -> Result<Vec<Service>> {
+        let pool = ctx.data::<PgPool>()?;
+        let services = Service::by_application_id(self.id, pool).await?;
+        Ok(services)
     }
 }
