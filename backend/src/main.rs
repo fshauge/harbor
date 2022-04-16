@@ -1,4 +1,5 @@
 mod graphql;
+mod model;
 
 use anyhow::Result;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
@@ -16,6 +17,8 @@ use std::net::SocketAddr;
 
 #[derive(Deserialize)]
 struct Config {
+    #[serde(default)]
+    production: bool,
     port: Option<u16>,
     database_url: String,
 }
@@ -41,6 +44,12 @@ async fn main() -> Result<()> {
 
     let config = envy::from_env::<Config>()?;
     let pool = PgPool::connect(&config.database_url).await?;
+
+    if config.production {
+        tracing::info!("Running migrations");
+        sqlx::migrate!().run(&pool).await?;
+    }
+
     let docker = Docker::connect_with_socket_defaults()?;
     let schema = graphql::build().data(pool).data(docker).finish();
 

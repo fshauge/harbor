@@ -1,12 +1,17 @@
-mod objects;
-mod query;
+mod application;
 
-use self::query::Query;
-use async_graphql::{EmptyMutation, EmptySubscription};
+use self::application::*;
+use async_graphql::{EmptySubscription, MergedObject};
 
-pub type Schema = async_graphql::Schema<Query, EmptyMutation, EmptySubscription>;
-pub type SchemaBuilder = async_graphql::SchemaBuilder<Query, EmptyMutation, EmptySubscription>;
+#[derive(MergedObject, Default)]
+pub struct Query(ApplicationQuery);
+
+#[derive(MergedObject, Default)]
+pub struct Mutation(ApplicationMutation);
+
+pub type Schema = async_graphql::Schema<Query, Mutation, EmptySubscription>;
+pub type SchemaBuilder = async_graphql::SchemaBuilder<Query, Mutation, EmptySubscription>;
 
 pub fn build() -> SchemaBuilder {
-    Schema::build(Query, EmptyMutation, EmptySubscription)
+    Schema::build(Query::default(), Mutation::default(), EmptySubscription)
 }
