@@ -10,15 +10,12 @@ use axum::{
     Router, Server,
 };
 use bollard::Docker;
-use entity::Database;
-use migration::{Migrator, MigratorTrait};
 use serde::Deserialize;
-use std::{net::SocketAddr, sync::Arc};
+use sqlx::PgPool;
+use std::net::SocketAddr;
 
 #[derive(Deserialize)]
 struct Config {
-    #[serde(default)]
-    production: bool,
     port: Option<u16>,
     database_url: String,
 }
@@ -39,26 +36,13 @@ async fn playground_handler() -> Html<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    dotenv::dotenv().ok();
     tracing_subscriber::fmt::init();
 
-    if dotenv::dotenv().is_ok() {
-        tracing::info!("Loaded environment variables from file");
-    }
-
     let config = envy::from_env::<Config>()?;
-    let database = Database::connect(config.database_url).await?;
-
-    if config.production {
-        tracing::info!("Running migrations");
-        Migrator::up(&database, None).await?;
-    }
-
+    let pool = PgPool::connect(&config.database_url).await?;
     let docker = Docker::connect_with_socket_defaults()?;
-
-    let schema = graphql::build()
-        .data(Arc::new(database))
-        .data(Arc::new(docker))
-        .finish();
+    let schema = graphql::build().data(pool).data(docker).finish();
 
     let app = Router::new()
         .route(PATH, get(playground_handler))
