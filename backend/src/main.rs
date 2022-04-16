@@ -1,7 +1,5 @@
 mod graphql;
 
-use std::{net::SocketAddr, sync::Arc};
-
 use anyhow::Result;
 use async_graphql::http::{playground_source, GraphQLPlaygroundConfig};
 use async_graphql_axum::{GraphQLRequest, GraphQLResponse};
@@ -13,6 +11,14 @@ use axum::{
 };
 use bollard::Docker;
 use sea_orm::Database;
+use serde::Deserialize;
+use std::{net::SocketAddr, sync::Arc};
+
+#[derive(Deserialize)]
+struct Config {
+    port: Option<u16>,
+    database_url: String,
+}
 
 const PATH: &str = "/graphql";
 
@@ -36,13 +42,13 @@ async fn main() -> Result<()> {
         log::info!("Loaded environment variables from file");
     }
 
+    let config = envy::from_env::<Config>()?;
+    let database = Database::connect(config.database_url).await?;
     let docker = Docker::connect_with_socket_defaults()?;
-    let database_url = std::env::var("DATABASE_URL")?;
-    let database = Database::connect(database_url).await?;
 
     let schema = graphql::build_schema()
-        .data(Arc::new(docker))
         .data(Arc::new(database))
+        .data(Arc::new(docker))
         .finish();
 
     let app = Router::new()
@@ -50,7 +56,7 @@ async fn main() -> Result<()> {
         .route(PATH, post(graphql_handler))
         .layer(AddExtensionLayer::new(schema));
 
-    let port = std::env::var("PORT")?.parse()?;
+    let port = config.port.unwrap_or(4000);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
 
     Server::bind(&addr).serve(app.into_make_service()).await?;
