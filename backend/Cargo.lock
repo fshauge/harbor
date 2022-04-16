@@ -1033,10 +1033,10 @@ dependencies = [
  "dotenv",
  "entity",
  "envy",
- "log",
  "migration",
  "serde",
  "tokio",
+ "tracing",
  "tracing-subscriber",
 ]
 

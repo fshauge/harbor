@@ -11,11 +11,14 @@ use axum::{
 };
 use bollard::Docker;
 use entity::Database;
+use migration::{Migrator, MigratorTrait};
 use serde::Deserialize;
 use std::{net::SocketAddr, sync::Arc};
 
 #[derive(Deserialize)]
 struct Config {
+    #[serde(default)]
+    production: bool,
     port: Option<u16>,
     database_url: String,
 }
@@ -39,14 +42,20 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     if dotenv::dotenv().is_ok() {
-        log::info!("Loaded environment variables from file");
+        tracing::info!("Loaded environment variables from file");
     }
 
     let config = envy::from_env::<Config>()?;
     let database = Database::connect(config.database_url).await?;
+
+    if config.production {
+        tracing::info!("Running migrations");
+        Migrator::up(&database, None).await?;
+    }
+
     let docker = Docker::connect_with_socket_defaults()?;
 
-    let schema = graphql::build_schema()
+    let schema = graphql::build()
         .data(Arc::new(database))
         .data(Arc::new(docker))
         .finish();
@@ -58,7 +67,7 @@ async fn main() -> Result<()> {
 
     let port = config.port.unwrap_or(4000);
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
-
+    tracing::info!("Launched on {}", addr);
     Server::bind(&addr).serve(app.into_make_service()).await?;
     Ok(())
 }
