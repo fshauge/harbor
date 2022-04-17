@@ -44,4 +44,14 @@ impl Application {
         .fetch_one(pool)
         .await
     }
+
+    pub async fn delete(id: i32, pool: &PgPool) -> Result<Application, Error> {
+        sqlx::query_as!(
+            Application,
+            "DELETE FROM applications WHERE id = $1 RETURNING *",
+            id
+        )
+        .fetch_one(pool)
+        .await
+    }
 }

@@ -51,6 +51,12 @@ impl ApplicationMutation {
         .into();
         Ok(application)
     }
+
+    async fn delete_application(&self, ctx: &Context<'_>, id: i32) -> Result<Application> {
+        let pool = ctx.data::<PgPool>()?;
+        let application = model::Application::delete(id, pool).await?.into();
+        Ok(application)
+    }
 }
 
 pub struct Application(pub model::Application);

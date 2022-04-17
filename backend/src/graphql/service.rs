@@ -54,6 +54,12 @@ impl ServiceMutation {
         Ok(service)
     }
 
+    async fn delete_service(&self, ctx: &Context<'_>, id: i32) -> Result<Service> {
+        let pool = ctx.data::<PgPool>()?;
+        let service = model::Service::delete(id, pool).await?.into();
+        Ok(service)
+    }
+
     async fn build_service(&self, ctx: &Context<'_>, id: i32) -> Result<String> {
         let pool = ctx.data::<PgPool>()?;
         let service = model::Service::by_id(id, pool).await?;

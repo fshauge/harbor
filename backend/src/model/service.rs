@@ -66,6 +66,16 @@ impl Service {
         .await
     }
 
+    pub async fn delete(id: i32, pool: &PgPool) -> Result<Service, Error> {
+        sqlx::query_as!(
+            Service,
+            "DELETE FROM services WHERE id = $1 RETURNING *",
+            id
+        )
+        .fetch_one(pool)
+        .await
+    }
+
     pub async fn update_container_id(
         id: i32,
         container_id: Option<&str>,
