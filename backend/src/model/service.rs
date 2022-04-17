@@ -20,21 +20,24 @@ pub struct NewService {
 }
 
 impl Service {
-    pub async fn all(pool: &PgPool) -> Result<Vec<Self>, Error> {
-        sqlx::query_as!(Self, "SELECT * FROM services")
+    pub async fn all(pool: &PgPool) -> Result<Vec<Service>, Error> {
+        sqlx::query_as!(Service, "SELECT * FROM services")
             .fetch_all(pool)
             .await
     }
 
-    pub async fn by_id(id: i32, pool: &PgPool) -> Result<Self, Error> {
-        sqlx::query_as!(Self, "SELECT * FROM services WHERE id = $1", id)
+    pub async fn by_id(id: i32, pool: &PgPool) -> Result<Service, Error> {
+        sqlx::query_as!(Service, "SELECT * FROM services WHERE id = $1", id)
             .fetch_one(pool)
             .await
     }
 
-    pub async fn by_application_id(application_id: i32, pool: &PgPool) -> Result<Vec<Self>, Error> {
+    pub async fn by_application_id(
+        application_id: i32,
+        pool: &PgPool,
+    ) -> Result<Vec<Service>, Error> {
         sqlx::query_as!(
-            Self,
+            Service,
             "SELECT * FROM services WHERE application_id = $1",
             application_id
         )
@@ -42,9 +45,9 @@ impl Service {
         .await
     }
 
-    pub async fn insert(service: NewService, pool: &PgPool) -> Result<Self, Error> {
+    pub async fn insert(service: NewService, pool: &PgPool) -> Result<Service, Error> {
         sqlx::query_as!(
-            Self,
+            Service,
             r#"
                 INSERT INTO services (application_id, name, path, container_id)
                 VALUES ($1, $2, $3, $4) RETURNING *
