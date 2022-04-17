@@ -115,6 +115,13 @@ impl Service {
         self.0.container_id.as_deref()
     }
 
+    async fn slug(&self, ctx: &Context<'_>) -> Result<String> {
+        let pool = ctx.data::<PgPool>()?;
+        let application = self.0.application(pool).await?;
+        let slug = self.0.slug(&application);
+        Ok(slug)
+    }
+
     async fn application(&self, ctx: &Context<'_>) -> Result<Application> {
         let pool = ctx.data::<PgPool>()?;
         let application = self.0.application(pool).await?.into();

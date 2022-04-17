@@ -1,6 +1,10 @@
 use super::Application;
 use anyhow::{bail, Result};
-use bollard::{container::Config, image::BuildImageOptions, Docker};
+use bollard::{
+    container::{Config, CreateContainerOptions},
+    image::BuildImageOptions,
+    Docker,
+};
 use chrono::NaiveDateTime;
 use futures::StreamExt;
 use sqlx::{Error, FromRow, PgPool};
@@ -110,11 +114,11 @@ impl Service {
             application.repository, application.branch, self.build_context
         );
 
-        let t = format!("{}-{}", application.name, self.image);
+        let slug = self.slug(&application);
 
         let options = BuildImageOptions {
             remote,
-            t,
+            t: slug,
             rm: true,
             ..Default::default()
         };
@@ -138,14 +142,15 @@ impl Service {
         }
 
         let application = self.application(pool).await?;
-        let t = format!("{}-{}", application.name, self.image);
+        let slug = self.slug(&application);
+        let options = CreateContainerOptions { name: slug.clone() };
 
         let config = Config {
-            image: Some(t),
+            image: Some(slug),
             ..Default::default()
         };
 
-        let container_id = docker.create_container::<String, _>(None, config).await?.id;
+        let container_id = docker.create_container(Some(options), config).await?.id;
 
         docker
             .start_container::<String>(&container_id, None)
@@ -164,5 +169,13 @@ impl Service {
         docker.remove_container(&container_id, None).await?;
         Service::update_container_id(self.id, None, pool).await?;
         Ok(container_id)
+    }
+
+    pub fn slug(&self, application: &Application) -> String {
+        format!(
+            "{}-{}",
+            application.name.to_lowercase().replace(' ', "-"),
+            self.image
+        )
     }
 }
