@@ -1,5 +1,8 @@
-use crate::model::{Application, NewService, Service};
+use super::application::Application;
+use crate::model;
 use async_graphql::{Context, Object, Result};
+use bollard::{image::BuildImageOptions, Docker};
+use futures::StreamExt;
 use sqlx::PgPool;
 
 #[derive(Default)]
@@ -9,13 +12,17 @@ pub struct ServiceQuery;
 impl ServiceQuery {
     async fn services(&self, ctx: &Context<'_>) -> Result<Vec<Service>> {
         let pool = ctx.data::<PgPool>()?;
-        let services = Service::all(pool).await?;
+        let services = model::Service::all(pool)
+            .await?
+            .into_iter()
+            .map(Into::into)
+            .collect();
         Ok(services)
     }
 
     async fn service(&self, ctx: &Context<'_>, id: i32) -> Result<Service> {
         let pool = ctx.data::<PgPool>()?;
-        let service = Service::by_id(id, pool).await?;
+        let service = model::Service::by_id(id, pool).await?.into();
         Ok(service)
     }
 }
@@ -30,45 +37,93 @@ impl ServiceMutation {
         ctx: &Context<'_>,
         application_id: i32,
         name: String,
-        path: String,
-        container_id: Option<String>,
+        image: String,
+        build_context: String,
     ) -> Result<Service> {
         let pool = ctx.data::<PgPool>()?;
-        let service = Service::insert(
-            NewService {
+        let service = model::Service::insert(
+            model::NewService {
                 application_id,
                 name,
-                path,
-                container_id,
+                image,
+                build_context,
             },
             pool,
         )
-        .await?;
+        .await?
+        .into();
         Ok(service)
+    }
+
+    async fn build_service(&self, ctx: &Context<'_>, id: i32) -> Result<Vec<Option<String>>> {
+        let pool = ctx.data::<PgPool>()?;
+        let service = model::Service::by_id(id, pool).await?;
+        let application = service.application(pool).await?;
+        let docker = ctx.data::<Docker>()?;
+
+        let remote = format!(
+            "{}#{}:{}",
+            application.repository, application.branch, service.build_context
+        );
+
+        let tag = format!("{}-{}", application.name.to_lowercase(), service.image);
+
+        let options = BuildImageOptions {
+            remote,
+            t: tag,
+            rm: true,
+            ..Default::default()
+        };
+
+        let build_infos = docker
+            .build_image(options, None, None)
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let progress = build_infos
+            .into_iter()
+            .map(|b| b.progress)
+            .collect::<Vec<_>>();
+
+        Ok(progress)
+    }
+}
+
+pub struct Service(pub model::Service);
+
+impl From<model::Service> for Service {
+    fn from(service: model::Service) -> Self {
+        Self(service)
     }
 }
 
 #[Object]
 impl Service {
     async fn id(&self) -> i32 {
-        self.id
+        self.0.id
     }
 
     async fn name(&self) -> &str {
-        &self.name
+        &self.0.name
     }
 
-    async fn path(&self) -> &str {
-        &self.path
+    async fn image(&self) -> &str {
+        &self.0.image
+    }
+
+    async fn build_context(&self) -> &str {
+        &self.0.build_context
     }
 
     async fn container_id(&self) -> Option<&str> {
-        self.container_id.as_deref()
+        self.0.container_id.as_deref()
     }
 
     async fn application(&self, ctx: &Context<'_>) -> Result<Application> {
         let pool = ctx.data::<PgPool>()?;
-        let application = Application::by_id(self.application_id, pool).await?;
+        let application = self.0.application(pool).await?.into();
         Ok(application)
     }
 }

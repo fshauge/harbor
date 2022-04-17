@@ -6,6 +6,7 @@ pub struct Application {
     pub id: i32,
     pub name: String,
     pub repository: String,
+    pub branch: String,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
 }
@@ -13,6 +14,7 @@ pub struct Application {
 pub struct NewApplication {
     pub name: String,
     pub repository: String,
+    pub branch: String,
 }
 
 impl Application {
@@ -31,9 +33,13 @@ impl Application {
     pub async fn insert(application: NewApplication, pool: &PgPool) -> Result<Application, Error> {
         sqlx::query_as!(
             Application,
-            "INSERT INTO applications (name, repository) VALUES ($1, $2) RETURNING *",
+            r"
+            INSERT INTO applications (name, repository, branch)
+            VALUES ($1, $2, $3) RETURNING *
+            ",
             application.name,
-            application.repository
+            application.repository,
+            application.branch
         )
         .fetch_one(pool)
         .await
