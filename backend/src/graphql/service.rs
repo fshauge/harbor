@@ -111,15 +111,20 @@ impl Service {
         &self.0.build_context
     }
 
-    async fn container_id(&self) -> Option<&str> {
-        self.0.container_id.as_deref()
-    }
-
     async fn slug(&self, ctx: &Context<'_>) -> Result<String> {
         let pool = ctx.data::<PgPool>()?;
         let application = self.0.application(pool).await?;
         let slug = self.0.slug(&application);
         Ok(slug)
+    }
+
+    async fn state(&self, ctx: &Context<'_>) -> Result<Option<String>> {
+        let pool = ctx.data::<PgPool>()?;
+        let application = self.0.application(pool).await?;
+        let slug = self.0.slug(&application);
+        let docker = ctx.data::<Docker>()?;
+        let state = self.0.state(&slug, docker).await?;
+        Ok(state)
     }
 
     async fn application(&self, ctx: &Context<'_>) -> Result<Application> {

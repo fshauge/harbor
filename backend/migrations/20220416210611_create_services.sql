@@ -4,7 +4,6 @@ CREATE TABLE services (
     name text NOT NULL,
     image text NOT NULL,
     build_context text NOT NULL,
-    container_id text,
     created_at timestamp NOT NULL DEFAULT now(),
     updated_at timestamp NOT NULL DEFAULT now()
 );
