@@ -55,7 +55,7 @@ impl ServiceMutation {
         Ok(service)
     }
 
-    async fn build_service(&self, ctx: &Context<'_>, id: i32) -> Result<Vec<Option<String>>> {
+    async fn build_service(&self, ctx: &Context<'_>, id: i32) -> Result<String> {
         let pool = ctx.data::<PgPool>()?;
         let service = model::Service::by_id(id, pool).await?;
         let application = service.application(pool).await?;
@@ -66,28 +66,26 @@ impl ServiceMutation {
             application.repository, application.branch, service.build_context
         );
 
-        let tag = format!("{}-{}", application.name.to_lowercase(), service.image);
+        let t = format!("{}-{}", application.name, service.image);
 
         let options = BuildImageOptions {
             remote,
-            t: tag,
+            t,
             rm: true,
             ..Default::default()
         };
 
-        let build_infos = docker
+        let build_info = docker
             .build_image(options, None, None)
             .collect::<Vec<_>>()
             .await
             .into_iter()
-            .collect::<Result<Vec<_>, _>>()?;
-
-        let progress = build_infos
+            .collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            .map(|b| b.progress)
-            .collect::<Vec<_>>();
+            .filter_map(|b| b.stream)
+            .collect::<String>();
 
-        Ok(progress)
+        Ok(build_info)
     }
 }
 
