@@ -1,10 +1,6 @@
 use super::Application;
 use anyhow::{bail, Result};
-use bollard::{
-    container::{Config, CreateContainerOptions},
-    image::BuildImageOptions,
-    Docker,
-};
+use bollard::{container::Config, image::BuildImageOptions, Docker};
 use chrono::NaiveDateTime;
 use futures::StreamExt;
 use sqlx::{Error, FromRow, PgPool};
@@ -133,14 +129,13 @@ impl Service {
 
         let application = self.application(pool).await?;
         let t = format!("{}-{}", application.name, self.image);
-        let options = CreateContainerOptions { name: t.clone() };
 
         let config = Config {
             image: Some(t),
             ..Default::default()
         };
 
-        let container_id = docker.create_container(Some(options), config).await?.id;
+        let container_id = docker.create_container::<String, _>(None, config).await?.id;
 
         docker
             .start_container::<String>(&container_id, None)
